@@ -229,7 +229,41 @@ body {
 .result-count {
   font-size: 0.88rem; font-weight: 500; color: var(--text-2);
 }
-.controls { display: flex; align-items: center; gap: 8px; }
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* 브랜드 필터 버튼 그룹 */
+.brand-filters {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+}
+.brand-filter-btn {
+  padding: 5px 14px;
+  border: none; border-radius: 100px;
+  font-family: inherit; font-size: 0.82rem; font-weight: 600;
+  color: var(--text-3);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.brand-filter-btn:hover:not(:disabled) { color: var(--text-1); }
+.brand-filter-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* TJ 활성 */
+.brand-filter-btn.tj.active {
+  background: rgba(239,68,68,0.18);
+  color: #f87171;
+  box-shadow: 0 0 10px rgba(239,68,68,0.25);
+}
+/* 금영 활성 */
+.brand-filter-btn.kumyoung.active {
+  background: rgba(59,130,246,0.18);
+  color: #60a5fa;
+  box-shadow: 0 0 10px rgba(59,130,246,0.25);
+}
 
 .tj-japan-btn {
   padding: 7px 14px;

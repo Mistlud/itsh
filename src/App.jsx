@@ -13,6 +13,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [sort, setSort] = useState('latest');
   const [tjJapanOnly, setTjJapanOnly] = useState(false);
+  const [brandFilter, setBrandFilter] = useState(null); // null | 'tj' | 'kumyoung'
   const debounceRef = useRef(null);
 
   const hasSearched = results !== null || loading || error !== null;
@@ -54,6 +55,11 @@ export default function App() {
     if (!results) return [];
     let r = [...results];
 
+    // 브랜드 필터 (TJ만 / 금영만)
+    if (brandFilter === 'tj') r = r.filter(x => x.brand === 'tj');
+    else if (brandFilter === 'kumyoung') r = r.filter(x => x.brand === 'kumyoung');
+
+    // TJ 일본곡 필터 (브랜드 필터 위에 추가 적용)
     if (tjJapanOnly) {
       r = r.filter(x => x.brand === 'tj' && isTjJapanese(x.no));
     }
@@ -66,7 +72,7 @@ export default function App() {
       default: break;
     }
     return r;
-  }, [results, sort, tjJapanOnly]);
+  }, [results, sort, tjJapanOnly, brandFilter]);
 
   return (
     <div className="app">
@@ -96,6 +102,8 @@ export default function App() {
               setSort={setSort}
               tjJapanOnly={tjJapanOnly}
               setTjJapanOnly={setTjJapanOnly}
+              brandFilter={brandFilter}
+              setBrandFilter={setBrandFilter}
               loading={loading}
             />
             <ResultList

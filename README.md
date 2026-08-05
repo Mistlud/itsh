@@ -2,7 +2,7 @@
 
 > 곡명 또는 가수명을 검색하면, 금영·TJ 노래방 수록 여부를 즉시 확인해주는 1페이지 반응형 웹앱
 
-🔗 [https://itsh.vercel.app](https://itsh.vercel.app) *(배포 예정)*
+🔗 [https://itsh.vercel.app](https://itsh.vercel.app) 
 
 ---
 

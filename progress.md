@@ -20,7 +20,7 @@
 
 ### ✅ 완료된 것들
 - React + Vite 프로젝트 셋업 및 전체 소스 구현
-- `npm run build` 성공 (21 modules, dist/ 생성)
+- `npm run build` 성공 (dist/ 생성)
 - GitHub 커밋·푸시 완료
 
 ### 구현된 기능
@@ -31,95 +31,49 @@
 | TJ만/금영만 토글 필터 | ControlBar.jsx | ✅ |
 | 🇯🇵 TJ 일본곡 토글 필터 | ControlBar.jsx | ✅ |
 | 정렬 (최신/오래된/곡명/번호순) | ControlBar.jsx | ✅ |
+| **번호 버튼 페이지네이션** (기본 20개씩) | Pagination.jsx | ✅ |
+| **페이지당 건수 선택** (10/20/50/100) | ControlBar.jsx | ✅ |
 | TJ 일본곡 번호 판별 함수 | utils/karaoke.js | ✅ |
-| 검색어 공백 제거 normalize() | utils/api.js | ✅ |
-| 특수문자 URL 인코딩 | utils/api.js | ✅ |
+| API 이중 인코딩 (공백 제거 / %20 유지) | utils/api.js | ✅ |
 | 다크 테마 CSS (orb, glassmorphism) | index.css | ✅ |
 
 ---
 
-## 3. ❗ 최우선 미결 사항 — API 호출 방식 수정
+## 3. API 호출 방식 (확정)
 
-### 문제 발견
-지금까지 API를 **브랜드 파라미터 없이** 호출하고 있었음:
+### 구조
+모든 검색은 3개의 병렬 호출로 이루어짐:
+
 ```
-# 현재 (잘못된 방식)
-https://api.manana.kr/karaoke/song/{query}.json
-https://api.manana.kr/karaoke/singer/{query}.json
-```
-→ 모든 브랜드(TJ+금영+JOYSOUND+DAM+UGA) 결과를 받아 **클라이언트에서 brand 필드로 필터링**
+1. fetchAll  — /karaoke/{type}/{query_stripped}.json
+   공백 제거 인코딩. 모든 브랜드(TJ·금영·JOYSOUND·DAM·UGA) 반환.
+   → JOYSOUND·DAM·UGA 수집 목적
 
-### 증상
-- BUMP OF CHICKEN TJ 검색 → 0건 (JOYSOUND/DAM/UGA는 나옴)
-- Bad Romance (TJ 22046) 검색 → 0건
-- TJ 일본 대역 곡 전체 검색 불가
+2. fetchBrand('tj') — /karaoke/{type}/{query_spaced}.json?brand=tj
+   공백 %20 인코딩. TJ 전용 인덱스 (일본곡 번호 대역 포함).
 
-### 원인
-`?brand=tj` 없이 호출하면 **TJ 일본곡 번호 대역이 검색 인덱스에서 빠짐**.  
-`?brand=tj`를 붙이면 TJ 전용 인덱스로 검색되어 일본곡도 포함됨.
-
-### 사용자 실증 확인
-```
-https://api.manana.kr/karaoke/song/紅.json?brand=tj
-→ TJ 일본곡 정상 검색됨 ✅
+3. fetchBrand('kumyoung') — /karaoke/{type}/{query_spaced}.json?brand=kumyoung
+   공백 %20 인코딩. 금영 전용 인덱스.
 ```
 
-### 수정 방향
-```
-# 수정 후 (올바른 방식)
-https://api.manana.kr/karaoke/song/{query}.json?brand=tj      ← TJ 전용
-https://api.manana.kr/karaoke/song/{query}.json?brand=kumyoung ← 금영 전용
-```
-→ 두 호출을 **병렬(Promise.all)** 로 실행 후 결과 병합  
-→ 클라이언트 필터링 제거 가능 (이미 브랜드별 분리됨)
+### 병합 규칙
+- TJ·금영 결과: brand 전용 호출 결과로 완전 교체
+- JOYSOUND·DAM·UGA: fetchAll 결과에서 유지
+- 중복 제거 키: `brand + no`
 
-### 수정해야 할 파일
-**`src/utils/api.js`**:
-```js
-const BASE = 'https://api.manana.kr/karaoke';
-
-function normalize(query) {
-  return query.replace(/\s+/g, '');
-}
-
-function encodeQuery(query) {
-  return encodeURIComponent(normalize(query))
-    .replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-}
-
-async function fetchBrand(type, query, brand) {
-  const url = `${BASE}/${type}/${encodeQuery(query)}.json?brand=${brand}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
-}
-
-// TJ + 금영 병렬 호출 후 병합
-export async function fetchBySong(query) {
-  const [tj, kumyoung] = await Promise.all([
-    fetchBrand('song', query, 'tj'),
-    fetchBrand('song', query, 'kumyoung'),
-  ]);
-  return [...tj, ...kumyoung];
-}
-
-export async function fetchBySinger(query) {
-  const [tj, kumyoung] = await Promise.all([
-    fetchBrand('singer', query, 'tj'),
-    fetchBrand('singer', query, 'kumyoung'),
-  ]);
-  return [...tj, ...kumyoung];
-}
-```
+### 공백 처리 이유
+| 호출 | 인코딩 | 이유 |
+|------|--------|------|
+| 일반(fetchAll) | 공백 제거 | 브랜드 없는 엔드포인트는 공백 미인식 |
+| ?brand=tj/kumyoung | 공백 %20 유지 | 브랜드 전용 인덱스는 %20 필요 |
 
 ---
 
-## 4. 다음 작업 순서
+## 4. 미결 사항
 
-1. **[ ] api.js 수정** — `?brand=tj` / `?brand=kumyoung` 병렬 호출로 변경
-2. **[ ] 검색 테스트** — BUMP OF CHICKEN, Bad Romance, 일반 한국곡 등
-3. **[ ] Vercel 배포** — GitHub itsh 레포 연결, Framework Preset Vite 자동 감지, 환경변수 없음
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Vercel 배포 | ❌ 미완료 | GitHub itsh 레포 연결, Framework Preset: Vite |
 
 ---
 
@@ -135,15 +89,16 @@ C:\ccy\itsh\
 ├── README.md
 ├── progress.md                 # 이 파일
 └── src/
-    ├── App.jsx                 # 상태관리, debounce, useMemo 필터+정렬
+    ├── App.jsx                 # 상태관리, debounce, useMemo 필터+정렬, 페이지네이션
     ├── main.jsx
     ├── index.css               # 다크 테마 전체 스타일
     ├── components/
     │   ├── SearchBar.jsx       # 히어로/컴팩트 모드 전환
-    │   ├── ControlBar.jsx      # 결과 수 + 브랜드필터 + TJ일본곡 + 정렬
-    │   └── ResultList.jsx      # 결과 카드 + 로딩/에러/빈 상태
+    │   ├── ControlBar.jsx      # 결과 수 + 브랜드필터 + TJ일본곡 + 정렬 + 페이지크기
+    │   ├── ResultList.jsx      # 결과 카드 + 로딩/에러/빈 상태
+    │   └── Pagination.jsx      # 번호 버튼 페이지네이션
     └── utils/
-        ├── api.js              # fetchBySong, fetchBySinger ← 수정 필요
+        ├── api.js              # fetchBySong, fetchBySinger (3중 병렬 호출)
         └── karaoke.js          # isTjJapanese(no), BRAND_INFO
 ```
 
@@ -152,14 +107,16 @@ C:\ccy\itsh\
 ## 6. App.jsx 주요 상태
 
 ```js
-const [query, setQuery]           // 검색어
-const [searchType, setSearchType] // 'song' | 'singer'
-const [results, setResults]       // null(미검색) | 배열
+const [query, setQuery]             // 검색어
+const [searchType, setSearchType]   // 'song' | 'singer'
+const [results, setResults]         // null(미검색) | 배열
 const [loading, setLoading]
 const [error, setError]
-const [sort, setSort]             // 'latest'|'oldest'|'title'|'no'
-const [tjJapanOnly, setTjJapanOnly]   // TJ 일본곡 필터
-const [brandFilter, setBrandFilter]   // null | 'tj' | 'kumyoung'
+const [sort, setSort]               // 'latest'|'oldest'|'title'|'no'
+const [tjJapanOnly, setTjJapanOnly] // TJ 일본곡 필터
+const [brandFilter, setBrandFilter] // null | 'tj' | 'kumyoung'
+const [page, setPage]               // 현재 페이지 (1-indexed)
+const [pageSize, setPageSize]       // 페이지당 건수 (기본 20)
 ```
 
 ---
@@ -183,6 +140,7 @@ const [brandFilter, setBrandFilter]   // null | 'tj' | 'kumyoung'
 - 검색창: focus 시 보라색 glow (`var(--accent)`)
 - 결과 카드: glassmorphism (rgba 배경 + border)
 - 브랜드 뱃지: 좌측 컬러 세로 막대
+- 페이지네이션: 번호 버튼, accent 색상 활성 표시
 - 720px 이하 모바일 반응형
 
 ---
@@ -192,3 +150,4 @@ const [brandFilter, setBrandFilter]   // null | 'tj' | 'kumyoung'
 - `App.css`는 Vite scaffold 기본 파일, import 없음 (삭제 가능)
 - `isTjJapanese` 판별 구간은 2026-08-04 기준. TJ 번호 체계 변경 시 재검증 필요
 - Manana API는 개인 운영 오픈 API — 공식 SLA 없음
+- 가수명 검색 시 한글/영문 표기 혼재 가능 (아이유 / IU 별도 검색 필요)

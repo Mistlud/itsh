@@ -390,7 +390,6 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── 반응형 (모바일 720px 이하) ─── */
 @media (max-width: 720px) {
   .main-container.has-results { padding-top: 16px; }
   .hero-title { font-size: 1.8rem; }
@@ -404,3 +403,45 @@ body {
   .search-header.compact .search-box { min-width: unset; }
   .control-bar { padding: 6px 2px; }
 }
+
+/* ─── 페이지네이션 ─── */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 0 16px;
+  flex-wrap: wrap;
+  animation: fadeUp 0.3s ease both;
+}
+.page-btn {
+  min-width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 8px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-family: inherit; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.page-btn:hover:not(:disabled) {
+  background: var(--surface-h);
+  border-color: var(--border-h);
+  color: var(--text-1);
+}
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.page-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.page-nav { font-size: 1.15rem; font-weight: 400; }
+.page-ellipsis {
+  color: var(--text-3); font-size: 0.88rem;
+  padding: 0 2px; line-height: 36px; user-select: none;
+}
+
+@media (max-width: 720px) {
+  .page-btn { min-width: 32px; height: 32px; font-size: 0.82rem; }
+}
+

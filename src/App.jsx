@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import SearchBar from './components/SearchBar';
 import ControlBar from './components/ControlBar';
 import ResultList from './components/ResultList';
+import Pagination from './components/Pagination';
 import { fetchBySong, fetchBySinger } from './utils/api';
 import { isTjJapanese } from './utils/karaoke';
 
@@ -14,6 +15,8 @@ export default function App() {
   const [sort, setSort] = useState('latest');
   const [tjJapanOnly, setTjJapanOnly] = useState(false);
   const [brandFilter, setBrandFilter] = useState(null); // null | 'tj' | 'kumyoung'
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const debounceRef = useRef(null);
 
   const hasSearched = results !== null || loading || error !== null;
@@ -23,6 +26,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setResults(null);
+    setPage(1);
     try {
       const data = type === 'song'
         ? await fetchBySong(q)
@@ -74,6 +78,14 @@ export default function App() {
     return r;
   }, [results, sort, tjJapanOnly, brandFilter]);
 
+  // 필터·정렬·페이지 크기 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setPage(1);
+  }, [displayed, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(displayed.length / pageSize));
+  const pagedItems = displayed.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="app">
       {/* 배경 장식 구 */}
@@ -104,13 +116,22 @@ export default function App() {
               setTjJapanOnly={setTjJapanOnly}
               brandFilter={brandFilter}
               setBrandFilter={setBrandFilter}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
               loading={loading}
             />
             <ResultList
-              results={displayed}
+              results={pagedItems}
               loading={loading}
               error={error}
             />
+            {!loading && !error && displayed.length > 0 && (
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            )}
           </>
         )}
       </div>

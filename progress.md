@@ -29,7 +29,7 @@
 | 곡명/가수명 탭 + 검색창 (debounce 1초) | SearchBar.jsx | ✅ |
 | 브랜드 뱃지 결과 카드 | ResultList.jsx | ✅ |
 | TJ만/금영만 토글 필터 | ControlBar.jsx | ✅ |
-| 🇯🇵 TJ 일본곡 토글 필터 | ControlBar.jsx | ✅ |
+| 🇯🇵 TJ 일본곡 신곡 릴리즈 조회 | ControlBar.jsx, api.js | ✅ |
 | 정렬 (최신/오래된/곡명/번호순) | ControlBar.jsx | ✅ |
 | **번호 버튼 페이지네이션** (기본 20개씩) | Pagination.jsx | ✅ |
 | **페이지당 건수 선택** (10/20/50/100) | ControlBar.jsx | ✅ |
@@ -55,6 +55,10 @@
 3. fetchBrand('kumyoung') — /karaoke/{type}/{query_spaced}.json?brand=kumyoung
    공백 %20 인코딩. 금영 전용 인덱스.
 ```
+
+### 신곡 릴리즈 호출 (v2 API 연동 완료)
+4. fetchTjJapaneseReleases — /v2/karaoke/release.json?release={YYYYMM}&brand=tj&limit=1000
+   선택한 최근 개월 수만큼 병렬 호출하여 전체 릴리즈를 가져온 뒤, 일본곡 번호 대역 필터링 및 중복 제거 적용.
 
 ### 병합 규칙
 - TJ·금영 결과: brand 전용 호출 결과로 완전 교체
@@ -113,7 +117,8 @@ const [results, setResults]         // null(미검색) | 배열
 const [loading, setLoading]
 const [error, setError]
 const [sort, setSort]               // 'latest'|'oldest'|'title'|'no'
-const [tjJapanOnly, setTjJapanOnly] // TJ 일본곡 필터
+const [isReleaseMode, setIsReleaseMode] // TJ 일본곡 릴리즈 모드
+const [releaseMonths, setReleaseMonths] // 릴리즈 개월 수 (1/3/6)
 const [brandFilter, setBrandFilter] // null | 'tj' | 'kumyoung'
 const [page, setPage]               // 현재 페이지 (1-indexed)
 const [pageSize, setPageSize]       // 페이지당 건수 (기본 20)

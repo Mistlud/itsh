@@ -3,26 +3,44 @@ import SearchBar from './components/SearchBar';
 import ControlBar from './components/ControlBar';
 import ResultList from './components/ResultList';
 import Pagination from './components/Pagination';
-import { fetchBySong, fetchBySinger } from './utils/api';
-import { isTjJapanese } from './utils/karaoke';
+import { fetchBySong, fetchBySinger, fetchTjJapaneseReleases } from './utils/api';
 
 export default function App() {
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState('song');
-  const [results, setResults] = useState(null); // null = 미검색 상태
+  const [results, setResults] = useState(null);
+  const [releaseResults, setReleaseResults] = useState(null);
+  const [isReleaseMode, setIsReleaseMode] = useState(false);
+  const [releaseMonths, setReleaseMonths] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState('latest');
-  const [tjJapanOnly, setTjJapanOnly] = useState(false);
-  const [brandFilter, setBrandFilter] = useState(null); // null | 'tj' | 'kumyoung'
+  const [brandFilter, setBrandFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const debounceRef = useRef(null);
 
-  const hasSearched = results !== null || loading || error !== null;
+  const hasSearched = isReleaseMode || results !== null || loading || error !== null;
+
+  const loadReleases = useCallback(async (months) => {
+    setLoading(true);
+    setError(null);
+    setReleaseResults(null);
+    setPage(1);
+    try {
+      const data = await fetchTjJapaneseReleases(months);
+      setReleaseResults(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const doSearch = useCallback(async (q, type) => {
     if (!q.trim()) return;
+    setIsReleaseMode(false);
+    setReleaseResults(null);
     setLoading(true);
     setError(null);
     setResults(null);
@@ -39,34 +57,52 @@ export default function App() {
     }
   }, []);
 
-  // 입력 1초 후 자동 검색
+  // 릴리즈 모드 토글: 핸들러 내부에서 loadReleases 수동 중복 호출을 제거하고 useEffect로 일원화
+  const handleToggleReleaseMode = useCallback(() => {
+    if (!isReleaseMode) {
+      setIsReleaseMode(true);
+      clearTimeout(debounceRef.current);
+    } else {
+      setIsReleaseMode(false);
+      setReleaseResults(null);
+      if (query.trim()) {
+        doSearch(query, searchType);
+      }
+    }
+  }, [isReleaseMode, query, searchType, doSearch]);
+
+  // isReleaseMode 또는 releaseMonths 변경 시 단 1회만 데이터 로드
   useEffect(() => {
-    if (!query.trim()) return;
+    if (isReleaseMode) {
+      loadReleases(releaseMonths);
+    }
+  }, [releaseMonths, isReleaseMode, loadReleases]);
+
+  // 입력 1초 후 자동 검색 — 릴리즈 모드일 때는 자동 검색 무시
+  useEffect(() => {
+    if (!query.trim() || isReleaseMode) return;
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       doSearch(query, searchType);
     }, 1000);
     return () => clearTimeout(debounceRef.current);
-  }, [query, searchType, doSearch]);
+  }, [query, searchType, isReleaseMode, doSearch]);
 
   const handleSearch = useCallback(() => {
     clearTimeout(debounceRef.current);
     doSearch(query, searchType);
   }, [query, searchType, doSearch]);
 
-  // 필터 + 정렬 적용
   const displayed = useMemo(() => {
+    if (isReleaseMode) {
+      return releaseResults ? [...releaseResults] : [];
+    }
+
     if (!results) return [];
     let r = [...results];
 
-    // 브랜드 필터 (TJ만 / 금영만)
     if (brandFilter === 'tj') r = r.filter(x => x.brand === 'tj');
     else if (brandFilter === 'kumyoung') r = r.filter(x => x.brand === 'kumyoung');
-
-    // TJ 일본곡 필터 (브랜드 필터 위에 추가 적용)
-    if (tjJapanOnly) {
-      r = r.filter(x => x.brand === 'tj' && isTjJapanese(x.no));
-    }
 
     switch (sort) {
       case 'latest': r.sort((a, b) => b.release.localeCompare(a.release)); break;
@@ -76,9 +112,8 @@ export default function App() {
       default: break;
     }
     return r;
-  }, [results, sort, tjJapanOnly, brandFilter]);
+  }, [isReleaseMode, releaseResults, results, sort, brandFilter]);
 
-  // 필터·정렬·페이지 크기 변경 시 1페이지로 리셋
   useEffect(() => {
     setPage(1);
   }, [displayed, pageSize]);
@@ -88,7 +123,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* 배경 장식 구 */}
       <div className="bg-orbs" aria-hidden="true">
         <div className="orb orb-1" />
         <div className="orb orb-2" />
@@ -109,13 +143,15 @@ export default function App() {
           <>
             <ControlBar
               count={displayed.length}
-              totalCount={results ? results.length : 0}
+              totalCount={isReleaseMode ? (releaseResults ? releaseResults.length : 0) : (results ? results.length : 0)}
               sort={sort}
               setSort={setSort}
-              tjJapanOnly={tjJapanOnly}
-              setTjJapanOnly={setTjJapanOnly}
               brandFilter={brandFilter}
               setBrandFilter={setBrandFilter}
+              isReleaseMode={isReleaseMode}
+              onToggleReleaseMode={handleToggleReleaseMode}
+              releaseMonths={releaseMonths}
+              setReleaseMonths={setReleaseMonths}
               pageSize={pageSize}
               setPageSize={setPageSize}
               loading={loading}
